@@ -1,0 +1,7 @@
+{
+  "name": "BarberAgenda Pro",
+  "description": "Sistema de gestão completo para barbeiros: organize agenda, clientes e financeiro de forma simples e offline.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
