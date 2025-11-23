@@ -90,6 +90,14 @@
         color: #71717a !important;
         opacity: 1;
       }
+
+      /* Invert calendar/time picker icons so they are white */
+      [type="date"]::-webkit-calendar-picker-indicator,
+      [type="time"]::-webkit-calendar-picker-indicator {
+        filter: invert(1);
+        cursor: pointer;
+        opacity: 0.7;
+      }
     </style>
   <script type="importmap">
 {

@@ -34,7 +34,7 @@ export interface Service {
 export interface Appointment {
   id: string;
   clientId: string;
-  serviceId: string;
+  serviceIds: string[]; // Changed from single serviceId to array
   date: string; // ISO Date String YYYY-MM-DD
   time: string; // HH:mm
   status: AppointmentStatus;
@@ -49,4 +49,9 @@ export interface DailyStats {
   totalRevenue: number;
   totalAppointments: number;
   completedAppointments: number;
+}
+
+export interface BarberSettings {
+  shopName: string;
+  shopPhone: string;
 }

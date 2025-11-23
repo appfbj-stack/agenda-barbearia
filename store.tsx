@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Client, Service, Appointment, AppointmentStatus, PaymentStatus } from './types';
+import { Client, Service, Appointment, AppointmentStatus, PaymentStatus, BarberSettings } from './types';
 import { generateId, getTodayDateString } from './utils';
 
 interface AppContextType {
   clients: Client[];
   services: Service[];
   appointments: Appointment[];
+  settings: BarberSettings;
   addClient: (client: Omit<Client, 'id' | 'createdAt'>) => void;
   updateClient: (id: string, data: Partial<Client>) => void;
   deleteClient: (id: string) => void;
@@ -15,6 +16,7 @@ interface AppContextType {
   addAppointment: (apt: Omit<Appointment, 'id' | 'createdAt'>) => void;
   updateAppointment: (id: string, data: Partial<Appointment>) => void;
   deleteAppointment: (id: string) => void;
+  updateSettings: (data: Partial<BarberSettings>) => void;
   getAppointmentsByDate: (date: string) => Appointment[];
   getClientById: (id: string) => Client | undefined;
   getServiceById: (id: string) => Service | undefined;
@@ -25,7 +27,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const STORAGE_KEYS = {
   CLIENTS: 'barber_clients',
   SERVICES: 'barber_services',
-  APPOINTMENTS: 'barber_appointments'
+  APPOINTMENTS: 'barber_appointments',
+  SETTINGS: 'barber_settings'
 };
 
 const INITIAL_SERVICES: Service[] = [
@@ -35,20 +38,34 @@ const INITIAL_SERVICES: Service[] = [
   { id: '4', name: 'Sobrancelha', durationMinutes: 10, price: 10 },
 ];
 
+const INITIAL_SETTINGS: BarberSettings = {
+  shopName: 'Minha Barbearia',
+  shopPhone: ''
+};
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [settings, setSettings] = useState<BarberSettings>(INITIAL_SETTINGS);
 
   // Load data
   useEffect(() => {
     const loadedClients = JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENTS) || '[]');
     const loadedServices = JSON.parse(localStorage.getItem(STORAGE_KEYS.SERVICES) || '[]');
-    const loadedAppointments = JSON.parse(localStorage.getItem(STORAGE_KEYS.APPOINTMENTS) || '[]');
+    const rawAppointments = JSON.parse(localStorage.getItem(STORAGE_KEYS.APPOINTMENTS) || '[]');
+    const loadedSettings = JSON.parse(localStorage.getItem(STORAGE_KEYS.SETTINGS) || 'null');
+
+    // Migrate appointments to have serviceIds array if they have old serviceId
+    const loadedAppointments = rawAppointments.map((a: any) => ({
+      ...a,
+      serviceIds: Array.isArray(a.serviceIds) ? a.serviceIds : (a.serviceId ? [a.serviceId] : [])
+    }));
 
     setClients(loadedClients);
     setServices(loadedServices.length > 0 ? loadedServices : INITIAL_SERVICES);
     setAppointments(loadedAppointments);
+    if (loadedSettings) setSettings(loadedSettings);
   }, []);
 
   // Persist data
@@ -63,6 +80,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(appointments));
   }, [appointments]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+  }, [settings]);
 
   // Client Actions
   const addClient = (data: Omit<Client, 'id' | 'createdAt'>) => {
@@ -118,6 +139,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setAppointments(prev => prev.filter(a => a.id !== id));
   };
 
+  // Settings Actions
+  const updateSettings = (data: Partial<BarberSettings>) => {
+    setSettings(prev => ({ ...prev, ...data }));
+  };
+
   const getAppointmentsByDate = (date: string) => {
     return appointments
       .filter(a => a.date === date)
@@ -132,6 +158,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       clients,
       services,
       appointments,
+      settings,
       addClient,
       updateClient,
       deleteClient,
@@ -141,6 +168,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addAppointment,
       updateAppointment,
       deleteAppointment,
+      updateSettings,
       getAppointmentsByDate,
       getClientById,
       getServiceById

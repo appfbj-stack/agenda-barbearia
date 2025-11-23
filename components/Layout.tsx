@@ -9,10 +9,11 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
 
+  // Helper to check active state, treating /agenda as the main active for root-like feel if needed
   const isActive = (path: string) => location.pathname === path;
 
   const navItems = [
-    { path: '/', icon: Calendar, label: 'Agenda' },
+    { path: '/agenda', icon: Calendar, label: 'Agenda' },
     { path: '/clients', icon: Users, label: 'Clientes' },
     { path: '/services', icon: Scissors, label: 'Serviços' },
     { path: '/finance', icon: PieChart, label: 'Financeiro' },

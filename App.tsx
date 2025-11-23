@@ -6,19 +6,22 @@ import Agenda from './pages/Agenda';
 import Clients from './pages/Clients';
 import Services from './pages/Services';
 import Finance from './pages/Finance';
+import Landing from './pages/Landing';
 
 const App: React.FC = () => {
   return (
     <AppProvider>
       <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Agenda />} />
-            <Route path="/clients" element={<Clients />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/finance" element={<Finance />} />
-          </Routes>
-        </Layout>
+        <Routes>
+          {/* Public Landing Page */}
+          <Route path="/" element={<Landing />} />
+          
+          {/* Protected/App Routes wrapped in Layout */}
+          <Route path="/agenda" element={<Layout><Agenda /></Layout>} />
+          <Route path="/clients" element={<Layout><Clients /></Layout>} />
+          <Route path="/services" element={<Layout><Services /></Layout>} />
+          <Route path="/finance" element={<Layout><Finance /></Layout>} />
+        </Routes>
       </Router>
     </AppProvider>
   );
