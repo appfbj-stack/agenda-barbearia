@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../store';
 import { getWeekDays, getDayLabel, formatDate, getTodayDateString, formatCurrency, parseDate } from '../utils';
-import { Plus, Check, X, Clock, DollarSign, User, LogOut, Share2 } from 'lucide-react';
+import { Plus, Check, X, Clock, DollarSign, User, LogOut, Share2, Bell } from 'lucide-react';
 import { AppointmentStatus, PaymentStatus, Appointment, PaymentMethod } from '../types';
 import { useNavigate } from 'react-router-dom';
 
@@ -139,6 +139,38 @@ Te aguardo!`;
 
     const encodedMessage = encodeURIComponent(message);
     const cleanPhone = client.phone.replace(/\D/g, ''); // Remove non-numeric chars
+    
+    window.open(`https://wa.me/55${cleanPhone}?text=${encodedMessage}`, '_blank');
+  };
+
+  const handleSendReminder = () => {
+    if (!clientId) return;
+    
+    const client = clients.find(c => c.id === clientId);
+    if (!client || !client.phone) {
+        alert("Cliente sem telefone cadastrado.");
+        return;
+    }
+    
+    const selectedServiceNames = serviceIds
+        .map(id => services.find(s => s.id === id)?.name)
+        .filter(Boolean)
+        .join(' + ');
+
+    const [year, month, day] = selectedDate.split('-');
+    const formattedDate = `${day}/${month}/${year}`;
+
+    const message = `Olá ${client.name}! 👋
+Lembrete do seu horário na *${settings.shopName}*.
+
+🗓 Data: ${formattedDate}
+⏰ Horário: ${time}
+✂ Serviço: ${selectedServiceNames || 'Personalizado'}
+
+Até logo!`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const cleanPhone = client.phone.replace(/\D/g, '');
     
     window.open(`https://wa.me/55${cleanPhone}?text=${encodedMessage}`, '_blank');
   };
@@ -289,17 +321,24 @@ Te aguardo!`;
                            onClose();
                         }
                       }}
-                      className="px-4 bg-red-900/10 text-red-500 rounded-lg font-semibold hover:bg-red-900/20 border border-red-900/30"
+                      className="px-3 bg-red-900/10 text-red-500 rounded-lg font-semibold hover:bg-red-900/20 border border-red-900/30"
                       title="Excluir"
                     >
                       <LogOut size={20} className="rotate-180" /> 
-                      {/* Using LogOut rotated as a makeshift trash/exit icon since I didn't import Trash */}
+                    </button>
+
+                    <button
+                        onClick={handleSendReminder}
+                        className="px-3 bg-brand-100 text-brand-700 rounded-lg font-semibold hover:bg-brand-200 border border-brand-300 flex items-center justify-center"
+                        title="Enviar Lembrete"
+                    >
+                        <Bell size={20} />
                     </button>
 
                     <button
                         onClick={handleShareWhatsApp}
-                        className="px-4 bg-green-100 text-green-700 rounded-lg font-semibold hover:bg-green-200 border border-green-300 flex items-center justify-center"
-                        title="Enviar no WhatsApp"
+                        className="px-3 bg-green-100 text-green-700 rounded-lg font-semibold hover:bg-green-200 border border-green-300 flex items-center justify-center"
+                        title="Enviar Confirmação"
                     >
                         <Share2 size={20} />
                     </button>

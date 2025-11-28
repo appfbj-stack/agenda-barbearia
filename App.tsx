@@ -6,6 +6,7 @@ import Agenda from './pages/Agenda';
 import Clients from './pages/Clients';
 import Services from './pages/Services';
 import Finance from './pages/Finance';
+import Admin from './pages/Admin';
 import Landing from './pages/Landing';
 
 const App: React.FC = () => {
@@ -21,6 +22,7 @@ const App: React.FC = () => {
           <Route path="/clients" element={<Layout><Clients /></Layout>} />
           <Route path="/services" element={<Layout><Services /></Layout>} />
           <Route path="/finance" element={<Layout><Finance /></Layout>} />
+          <Route path="/admin" element={<Layout><Admin /></Layout>} />
         </Routes>
       </Router>
     </AppProvider>

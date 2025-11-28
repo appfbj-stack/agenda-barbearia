@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Users, Scissors, PieChart } from 'lucide-react';
+import { Calendar, Users, Scissors, PieChart, Settings } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 interface LayoutProps {
@@ -16,7 +16,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: '/agenda', icon: Calendar, label: 'Agenda' },
     { path: '/clients', icon: Users, label: 'Clientes' },
     { path: '/services', icon: Scissors, label: 'Serviços' },
-    { path: '/finance', icon: PieChart, label: 'Financeiro' },
+    { path: '/finance', icon: PieChart, label: 'Caixa' },
+    { path: '/admin', icon: Settings, label: 'Admin' },
   ];
 
   return (
@@ -38,7 +39,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   active ? 'text-brand-600' : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
-                <Icon size={24} strokeWidth={active ? 2.5 : 2} />
+                <Icon size={20} strokeWidth={active ? 2.5 : 2} />
                 <span className="text-[10px] mt-1 font-medium">{item.label}</span>
               </Link>
             );

@@ -20,6 +20,8 @@ interface AppContextType {
   getAppointmentsByDate: (date: string) => Appointment[];
   getClientById: (id: string) => Client | undefined;
   getServiceById: (id: string) => Service | undefined;
+  resetData: () => void;
+  loadData: (data: any) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -144,6 +146,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSettings(prev => ({ ...prev, ...data }));
   };
 
+  // Admin Actions
+  const resetData = () => {
+    setClients([]);
+    setServices(INITIAL_SERVICES);
+    setAppointments([]);
+    setSettings(INITIAL_SETTINGS);
+    localStorage.clear();
+  };
+
+  const loadData = (data: any) => {
+    if (data.clients) setClients(data.clients);
+    if (data.services) setServices(data.services);
+    if (data.appointments) setAppointments(data.appointments);
+    if (data.settings) setSettings(data.settings);
+  };
+
   const getAppointmentsByDate = (date: string) => {
     return appointments
       .filter(a => a.date === date)
@@ -171,7 +189,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       updateSettings,
       getAppointmentsByDate,
       getClientById,
-      getServiceById
+      getServiceById,
+      resetData,
+      loadData
     }}>
       {children}
     </AppContext.Provider>
