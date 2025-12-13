@@ -407,7 +407,7 @@ const Agenda: React.FC = () => {
         </div>
         
         {/* Calendar Strip */}
-        <div className="flex overflow-x-auto pb-4 px-4 gap-3 no-scrollbar snap-x">
+        <div className="flex overflow-x-auto pb-4 px-4 gap-2 no-scrollbar snap-x">
           {weekDays.map((day) => {
             const isSelected = formatDate(day) === formatDate(selectedDate);
             const isToday = formatDate(day) === getTodayDateString();
@@ -415,7 +415,7 @@ const Agenda: React.FC = () => {
               <button
                 key={day.toISOString()}
                 onClick={() => setSelectedDate(day)}
-                className={`flex-shrink-0 w-14 h-20 rounded-2xl flex flex-col items-center justify-center snap-center transition-all border ${
+                className={`flex-shrink-0 w-13 min-w-[3.25rem] h-20 rounded-2xl flex flex-col items-center justify-center snap-center transition-all border ${
                   isSelected 
                     ? 'bg-brand-600 text-black border-brand-600 shadow-lg shadow-brand-900/20 transform scale-105' 
                     : 'bg-gray-50 border-gray-100 text-gray-500 hover:bg-gray-100'
