@@ -149,7 +149,8 @@ const Admin: React.FC = () => {
           alert("Salve o telefone da barbearia acima primeiro.");
           return;
       }
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      // Use api.whatsapp.com for better Web/Desktop support
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
       window.open(whatsappUrl, '_blank');
   };
 

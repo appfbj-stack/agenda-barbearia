@@ -6,7 +6,7 @@ const ClientSignup: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   
-  // Get config from URL params (since client doesn't have local data)
+  // Get config from URL params
   const shopName = searchParams.get('shop') || 'Barbearia';
   const shopPhone = searchParams.get('phone') || '';
 
@@ -16,11 +16,19 @@ const ClientSignup: React.FC = () => {
   const handleSignup = () => {
     if (!name || !shopPhone) return;
 
+    // 1. Clean Phone Logic: Remove non-digits from the SHOP phone
+    let cleanShopPhone = shopPhone.replace(/\D/g, '');
+    if (cleanShopPhone.length >= 10 && cleanShopPhone.length <= 11) {
+        cleanShopPhone = '55' + cleanShopPhone;
+    }
+
     // Create the message the client will send to the barber
     const message = `Olá! Quero me cadastrar na *${shopName}*.\n\n👤 Nome: ${name}\n📱 Telefone: ${phone || 'Mesmo deste WhatsApp'}`;
     
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${shopPhone}?text=${encodedMessage}`;
+    
+    // 2. Use robust API URL
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanShopPhone}&text=${encodedMessage}`;
     
     window.open(whatsappUrl, '_blank');
   };

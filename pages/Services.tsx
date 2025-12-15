@@ -43,7 +43,8 @@ const Services: React.FC = () => {
           return;
       }
       const url = getShareUrl();
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
+      // Use api.whatsapp.com/send specifically for sharing links to allow contact selection
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(url)}`;
       window.open(whatsappUrl, '_blank');
   }
 

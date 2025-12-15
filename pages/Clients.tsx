@@ -44,7 +44,8 @@ const Clients: React.FC = () => {
           return;
       }
       const url = getShareUrl();
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
+      // Use api.whatsapp.com/send specifically
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(url)}`;
       window.open(whatsappUrl, '_blank');
   };
 

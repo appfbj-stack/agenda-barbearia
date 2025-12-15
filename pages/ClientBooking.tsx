@@ -54,13 +54,23 @@ const ClientBooking: React.FC = () => {
   const handleSendRequest = () => {
     if (!clientName || !selectedTime || !shopPhone) return;
 
+    // 1. Clean Phone Logic: Remove non-digits
+    let cleanPhone = shopPhone.replace(/\D/g, '');
+    
+    // 2. Add Country Code (55 Brazil) if missing
+    // Assuming normal mobile numbers are 10 (DDD+Num) or 11 (DDD+9+Num) digits
+    if (cleanPhone.length >= 10 && cleanPhone.length <= 11) {
+        cleanPhone = '55' + cleanPhone;
+    }
+
     const dateStr = selectedDate.toLocaleDateString('pt-BR');
 
     const message = `Olá! Gostaria de agendar na *${shopName}*.\n\n👤 *Cliente:* ${clientName}\n🗓 *Data:* ${dateStr}\n⏰ *Horário:* ${selectedTime}\n\nAguardo confirmação!`;
 
     const encodedMessage = encodeURIComponent(message);
-    // Use api.whatsapp.com for broad compatibility
-    const whatsappUrl = `https://api.whatsapp.com/send?phone=${shopPhone}&text=${encodedMessage}`;
+    
+    // 3. Use the robust API URL
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMessage}`;
     
     window.open(whatsappUrl, '_blank');
   };
