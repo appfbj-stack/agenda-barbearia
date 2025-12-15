@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../store';
-import { getWeekDays, getDayLabel, formatDate, getTodayDateString, formatCurrency, parseDate } from '../utils';
-import { Plus, Check, X, Clock, DollarSign, User, LogOut, Share2, Bell } from 'lucide-react';
-import { AppointmentStatus, PaymentStatus, Appointment, PaymentMethod } from '../types';
+import { getWeekDays, getDayLabel, formatDate, getTodayDateString, formatCurrency } from '../utils';
+import { Plus, Check, X, Clock, LogOut, Share2, Bell, Coffee } from 'lucide-react';
+import { AppointmentStatus, PaymentStatus, Appointment } from '../types';
 import { useNavigate } from 'react-router-dom';
 
 interface AppointmentModalProps {
@@ -10,16 +10,40 @@ interface AppointmentModalProps {
   onClose: () => void;
   selectedDate: string;
   existingAppointment?: Appointment;
+  initialTime?: string;
+  availableSlots: string[];
 }
 
-const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onClose, selectedDate, existingAppointment }) => {
+const generateTimeSlots = (startStr: string, endStr: string, intervalMinutes: number) => {
+  const slots = [];
+  const [startH, startM] = startStr.split(':').map(Number);
+  const [endH, endM] = endStr.split(':').map(Number);
+  
+  let current = new Date();
+  current.setHours(startH, startM, 0, 0);
+  
+  const end = new Date();
+  end.setHours(endH, endM, 0, 0);
+
+  // If closing time is exactly on the hour/minute, usually we stop slightly before if the service takes time.
+  // But for listing slots, we list until the closing time (e.g. if close at 20:00, last slot 19:30 for 30min service).
+  // We'll allow generating up to the end time for now.
+  while (current < end) {
+    const timeString = current.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    slots.push(timeString);
+    current.setMinutes(current.getMinutes() + intervalMinutes);
+  }
+  return slots;
+};
+
+const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onClose, selectedDate, existingAppointment, initialTime, availableSlots }) => {
   const { clients, services, addAppointment, updateAppointment, addClient, deleteAppointment, settings } = useAppStore();
   const [step, setStep] = useState(1); // 1: Client, 2: Details
   
   // Form State
   const [clientId, setClientId] = useState(existingAppointment?.clientId || '');
   const [serviceIds, setServiceIds] = useState<string[]>(existingAppointment?.serviceIds || []);
-  const [time, setTime] = useState(existingAppointment?.time || '09:00');
+  const [time, setTime] = useState(existingAppointment?.time || initialTime || '');
   const [price, setPrice] = useState(existingAppointment?.price || 0);
   const [notes, setNotes] = useState(existingAppointment?.notes || '');
   
@@ -41,14 +65,14 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onClose, se
       setStep(1);
       setClientId('');
       setServiceIds([]);
-      setTime('09:00');
+      setTime(initialTime || '');
       setPrice(0);
       setNotes('');
       setIsNewClient(false);
       setNewClientName('');
       setNewClientPhone('');
     }
-  }, [existingAppointment, isOpen]);
+  }, [existingAppointment, isOpen, initialTime]);
 
   const toggleService = (id: string) => {
     let newIds: string[];
@@ -70,17 +94,28 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onClose, se
   };
 
   const handleSave = () => {
+    if (!time) {
+        alert("Por favor, selecione um horário.");
+        return;
+    }
+
     let finalClientId = clientId;
 
     if (isNewClient) {
       if (!newClientName) return;
-      // Note: In a real app we would await this, but for this sync store it works
       addClient({ name: newClientName, phone: newClientPhone });
-      // We would need to retrieve the ID, but for this simple version we rely on user flow
-      // A proper fix requires addClient to return ID.
     }
 
-    if (!finalClientId && !isNewClient) return;
+    // Attempt to find client if newly added (mock fix)
+    if (!finalClientId && isNewClient) {
+        const c = clients.find(c => c.name === newClientName);
+        if (c) finalClientId = c.id;
+    }
+
+    if (!finalClientId && !isNewClient) {
+        alert("Selecione um cliente.");
+        return;
+    }
 
     const payload = {
       clientId: finalClientId,
@@ -109,43 +144,27 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({ isOpen, onClose, se
 
   const handleShareWhatsApp = () => {
     if (!clientId) return;
-    
-    // Attempt to find client info (could be the existing one or the one just selected)
     const client = clients.find(c => c.id === clientId);
     if (!client || !client.phone) {
         alert("Cliente sem telefone cadastrado.");
         return;
     }
     
-    // Format Services
     const selectedServiceNames = serviceIds
         .map(id => services.find(s => s.id === id)?.name)
         .filter(Boolean)
         .join(' + ');
-
-    // Format Date
     const [year, month, day] = selectedDate.split('-');
     const formattedDate = `${day}/${month}/${year}`;
 
-    const message = `Olá ${client.name}! 💈
-Seu agendamento na *${settings.shopName}* está confirmado.
-
-🗓 Data: ${formattedDate}
-⏰ Horário: ${time}
-✂ Serviço: ${selectedServiceNames || 'Personalizado'}
-💰 Valor: ${formatCurrency(price)}
-
-Te aguardo!`;
-
+    const message = `Olá ${client.name}! 💈\nSeu agendamento na *${settings.shopName}* está confirmado.\n\n🗓 Data: ${formattedDate}\n⏰ Horário: ${time}\n✂ Serviço: ${selectedServiceNames || 'Personalizado'}\n💰 Valor: ${formatCurrency(price)}\n\nTe aguardo!`;
     const encodedMessage = encodeURIComponent(message);
-    const cleanPhone = client.phone.replace(/\D/g, ''); // Remove non-numeric chars
-    
+    const cleanPhone = client.phone.replace(/\D/g, '');
     window.open(`https://wa.me/55${cleanPhone}?text=${encodedMessage}`, '_blank');
   };
 
   const handleSendReminder = () => {
     if (!clientId) return;
-    
     const client = clients.find(c => c.id === clientId);
     if (!client || !client.phone) {
         alert("Cliente sem telefone cadastrado.");
@@ -156,22 +175,12 @@ Te aguardo!`;
         .map(id => services.find(s => s.id === id)?.name)
         .filter(Boolean)
         .join(' + ');
-
     const [year, month, day] = selectedDate.split('-');
     const formattedDate = `${day}/${month}/${year}`;
 
-    const message = `Olá ${client.name}! 👋
-Lembrete do seu horário na *${settings.shopName}*.
-
-🗓 Data: ${formattedDate}
-⏰ Horário: ${time}
-✂ Serviço: ${selectedServiceNames || 'Personalizado'}
-
-Até logo!`;
-
+    const message = `Olá ${client.name}! 👋\nLembrete do seu horário na *${settings.shopName}*.\n\n🗓 Data: ${formattedDate}\n⏰ Horário: ${time}\n✂ Serviço: ${selectedServiceNames || 'Personalizado'}\n\nAté logo!`;
     const encodedMessage = encodeURIComponent(message);
     const cleanPhone = client.phone.replace(/\D/g, '');
-    
     window.open(`https://wa.me/55${cleanPhone}?text=${encodedMessage}`, '_blank');
   };
 
@@ -179,7 +188,7 @@ Até logo!`;
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh] border border-slate-200">
+      <div className="bg-white rounded-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 shadow-2xl">
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
           <h3 className="font-bold text-brand-500">
             {existingAppointment ? 'Editar Agendamento' : 'Novo Agendamento'}
@@ -189,7 +198,7 @@ Até logo!`;
           </button>
         </div>
 
-        <div className="p-4 overflow-y-auto">
+        <div className="p-4 overflow-y-auto custom-scrollbar">
           {step === 1 && (
             <div className="space-y-4">
               {!isNewClient ? (
@@ -225,7 +234,7 @@ Até logo!`;
                     onChange={e => setNewClientName(e.target.value)}
                   />
                   <input
-                    placeholder="Telefone (DDD + Número)"
+                    placeholder="Telefone (WhatsApp)"
                     className="w-full p-2 border border-gray-300 rounded bg-white placeholder-gray-400"
                     value={newClientPhone}
                     onChange={e => setNewClientPhone(e.target.value)}
@@ -242,7 +251,7 @@ Até logo!`;
               
               <div className="pt-4">
                 <button 
-                  disabled={!clientId}
+                  disabled={!clientId && !isNewClient}
                   onClick={() => setStep(2)}
                   className="w-full bg-brand-600 text-black py-3 rounded-lg font-bold shadow-sm hover:bg-brand-500 disabled:opacity-50 transition-colors"
                 >
@@ -255,8 +264,33 @@ Até logo!`;
           {step === 2 && (
             <div className="space-y-4">
               <div>
+                <label className="block text-xs font-medium text-brand-500 uppercase tracking-wider mb-2">Horários Disponíveis</label>
+                <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                  {availableSlots.map(slot => {
+                    const isSelected = time === slot;
+
+                    return (
+                      <button
+                        key={slot}
+                        onClick={() => setTime(slot)}
+                        className={`
+                          py-2 px-1 rounded-md text-xs font-bold border transition-all
+                          ${isSelected 
+                              ? 'bg-brand-500 text-black border-brand-500' 
+                              : 'bg-white text-gray-500 border-gray-200 hover:border-brand-300'
+                          }
+                        `}
+                      >
+                        {slot}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-xs font-medium text-brand-500 uppercase tracking-wider mb-1">Serviços</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   {services.map(s => {
                     const isSelected = serviceIds.includes(s.id);
                     return (
@@ -273,25 +307,19 @@ Até logo!`;
                           {s.name}
                           {isSelected && <Check size={14} />}
                         </div>
-                        <div className="text-xs text-gray-400 mt-1">R$ {s.price}</div>
+                        <div className="text-xs text-gray-400 mt-1 flex justify-between">
+                            <span>{s.durationMinutes} min</span>
+                            <span>{formatCurrency(s.price)}</span>
+                        </div>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-brand-500 uppercase tracking-wider mb-1">Horário</label>
-                  <input 
-                    type="time" 
-                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
-                    value={time}
-                    onChange={e => setTime(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-brand-500 uppercase tracking-wider mb-1">Preço Total (R$)</label>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-brand-500 uppercase tracking-wider mb-1">Total (R$)</label>
                   <input 
                     type="number" 
                     className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
@@ -311,35 +339,25 @@ Até logo!`;
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-2 pt-2">
                  {existingAppointment && (
                     <>
                     <button 
                       onClick={() => {
-                        if(confirm('Tem certeza que deseja cancelar?')) {
+                        if(confirm('Tem certeza que deseja cancelar este agendamento?')) {
                            deleteAppointment(existingAppointment.id);
                            onClose();
                         }
                       }}
-                      className="px-3 bg-red-900/10 text-red-500 rounded-lg font-semibold hover:bg-red-900/20 border border-red-900/30"
+                      className="p-3 bg-red-900/10 text-red-500 rounded-lg font-semibold hover:bg-red-900/20 border border-red-900/30"
                       title="Excluir"
                     >
-                      <LogOut size={20} className="rotate-180" /> 
+                      <LogOut size={20} /> 
                     </button>
-
-                    <button
-                        onClick={handleSendReminder}
-                        className="px-3 bg-brand-100 text-brand-700 rounded-lg font-semibold hover:bg-brand-200 border border-brand-300 flex items-center justify-center"
-                        title="Enviar Lembrete"
-                    >
+                    <button onClick={handleSendReminder} className="p-3 bg-brand-100 text-brand-700 rounded-lg border border-brand-300" title="Lembrete">
                         <Bell size={20} />
                     </button>
-
-                    <button
-                        onClick={handleShareWhatsApp}
-                        className="px-3 bg-green-100 text-green-700 rounded-lg font-semibold hover:bg-green-200 border border-green-300 flex items-center justify-center"
-                        title="Enviar Confirmação"
-                    >
+                    <button onClick={handleShareWhatsApp} className="p-3 bg-green-100 text-green-700 rounded-lg border border-green-300" title="WhatsApp">
                         <Share2 size={20} />
                     </button>
                     </>
@@ -359,26 +377,55 @@ Até logo!`;
   );
 };
 
+const CheckCircleIcon = () => (
+    <div className="h-4 w-4 rounded-full bg-brand-500 flex items-center justify-center">
+        <Check size={10} className="text-white" />
+    </div>
+)
+
 const Agenda: React.FC = () => {
   const navigate = useNavigate();
+  const [calendarStartDate] = useState<Date>(new Date());
+  
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingApt, setEditingApt] = useState<Appointment | undefined>(undefined);
+  const [initialTime, setInitialTime] = useState<string | undefined>(undefined);
   
-  const { getAppointmentsByDate, getClientById, getServiceById, updateAppointment } = useAppStore();
+  const { getAppointmentsByDate, getClientById, settings, updateAppointment } = useAppStore();
   
-  const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
+  const weekDays = useMemo(() => getWeekDays(calendarStartDate), [calendarStartDate]);
   const dateKey = formatDate(selectedDate);
   const appointments = getAppointmentsByDate(dateKey);
+  
+  // Dynamic Time Slots based on settings
+  const timeSlots = useMemo(() => {
+      const start = settings.workStartTime || '08:00';
+      const end = settings.workEndTime || '20:00';
+      return generateTimeSlots(start, end, 30);
+  }, [settings.workStartTime, settings.workEndTime]);
+
+  // Work Day Check
+  const isWorkDay = useMemo(() => {
+      if (!settings.workDays) return true;
+      return settings.workDays.includes(selectedDate.getDay());
+  }, [selectedDate, settings.workDays]);
 
   const dailyTotal = appointments
     .filter(a => a.status !== AppointmentStatus.CANCELLED)
     .reduce((sum, a) => sum + a.price, 0);
 
-  const toggleStatus = (apt: Appointment) => {
-    const newStatus = apt.paymentStatus === PaymentStatus.PENDING ? PaymentStatus.PAID : PaymentStatus.PENDING;
-    updateAppointment(apt.id, { paymentStatus: newStatus });
+  const handleSlotClick = (slot: string) => {
+    setInitialTime(slot);
+    setEditingApt(undefined);
+    setIsModalOpen(true);
   };
+
+  const handleEditApt = (apt: Appointment) => {
+      setInitialTime(undefined);
+      setEditingApt(apt);
+      setIsModalOpen(true);
+  }
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -388,18 +435,18 @@ const Agenda: React.FC = () => {
           <div>
             <h1 className="text-xl font-bold text-brand-500">Agenda</h1>
             <p className="text-sm text-gray-500 capitalize">
-              {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(selectedDate)}
+              {new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(selectedDate)}
             </p>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <div className="text-xs text-gray-400 font-medium uppercase">Previsto Hoje</div>
+              <div className="text-xs text-gray-400 font-medium uppercase">Hoje</div>
               <div className="text-lg font-bold text-brand-600">{formatCurrency(dailyTotal)}</div>
             </div>
             <button 
               onClick={() => navigate('/')} 
               className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors border border-gray-100"
-              title="Sair para tela inicial"
+              title="Sair"
             >
               <LogOut size={20} />
             </button>
@@ -411,6 +458,8 @@ const Agenda: React.FC = () => {
           {weekDays.map((day) => {
             const isSelected = formatDate(day) === formatDate(selectedDate);
             const isToday = formatDate(day) === getTodayDateString();
+            const dayIsWorkDay = !settings.workDays || settings.workDays.includes(day.getDay());
+
             return (
               <button
                 key={day.toISOString()}
@@ -419,7 +468,7 @@ const Agenda: React.FC = () => {
                   isSelected 
                     ? 'bg-brand-600 text-black border-brand-600 shadow-lg shadow-brand-900/20 transform scale-105' 
                     : 'bg-gray-50 border-gray-100 text-gray-500 hover:bg-gray-100'
-                }`}
+                } ${!dayIsWorkDay ? 'opacity-40 bg-gray-100 grayscale' : ''}`}
               >
                 <span className="text-xs font-medium uppercase mb-1">{getDayLabel(day).slice(0, 3)}</span>
                 <span className={`text-xl font-bold ${isToday && !isSelected ? 'text-brand-600' : ''}`}>
@@ -432,79 +481,93 @@ const Agenda: React.FC = () => {
         </div>
       </div>
 
-      {/* Appointments List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {appointments.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-            <Clock size={48} className="mb-4 opacity-20" />
-            <p>Nenhum agendamento.</p>
-            <button 
-              onClick={() => { setEditingApt(undefined); setIsModalOpen(true); }}
-              className="mt-4 text-brand-600 font-medium hover:text-brand-500"
-            >
-              Adicionar o primeiro
-            </button>
-          </div>
+      {/* Grid of Time Slots or Closed State */}
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50">
+        {!isWorkDay ? (
+             <div className="flex flex-col items-center justify-center h-full text-gray-400 py-10">
+                 <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4 text-gray-400">
+                    <Coffee size={40} />
+                 </div>
+                 <h2 className="text-lg font-bold text-gray-500">Barbearia Fechada</h2>
+                 <p className="text-sm">Nenhum horário disponível para este dia.</p>
+             </div>
         ) : (
-          appointments.map((apt) => {
-            const client = getClientById(apt.clientId);
-            const serviceNames = (apt.serviceIds || []).map(id => getServiceById(id)?.name).filter(Boolean).join(' + ');
-            const isPaid = apt.paymentStatus === PaymentStatus.PAID;
-            
-            return (
-              <div 
-                key={apt.id}
-                className="group relative bg-gray-50 border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-all flex items-start gap-4 active:scale-[0.99]"
-              >
-                 <div className="flex flex-col items-center min-w-[3rem]">
-                    <span className="text-sm font-bold text-gray-900">{apt.time}</span>
-                    <div className="h-full w-0.5 bg-gray-200 my-2"></div>
-                 </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-20">
+                {timeSlots.map((slot) => {
+                    const apt = appointments.find(a => a.time === slot && a.status !== AppointmentStatus.CANCELLED);
+                    const client = apt ? getClientById(apt.clientId) : null;
+                    const isPaid = apt?.paymentStatus === PaymentStatus.PAID;
 
-                 <div 
-                   className="flex-1 cursor-pointer"
-                   onClick={() => { setEditingApt(apt); setIsModalOpen(true); }}
-                 >
-                    <div className="flex justify-between items-start">
-                       <h3 className="font-semibold text-brand-500">{client?.name || 'Cliente Removido'}</h3>
-                       <span className="text-xs font-medium bg-gray-100 px-2 py-1 rounded text-gray-300">
-                         {formatCurrency(apt.price)}
-                       </span>
-                    </div>
-                    <p className="text-sm text-gray-400 mt-1">{serviceNames || 'Serviço Personalizado'}</p>
-                    {apt.notes && <p className="text-xs text-gray-500 mt-1 italic">"{apt.notes}"</p>}
-                 </div>
+                    if (apt) {
+                        return (
+                            <div 
+                                key={slot}
+                                onClick={() => handleEditApt(apt)}
+                                className={`
+                                    relative p-4 rounded-xl border flex flex-col justify-between min-h-[7rem] cursor-pointer transition-all active:scale-95 shadow-sm
+                                    ${isPaid 
+                                        ? 'bg-brand-50/50 border-brand-200 hover:border-brand-400' 
+                                        : 'bg-white border-gray-200 hover:border-brand-300'
+                                    }
+                                `}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="text-lg font-bold text-gray-800">{slot}</span>
+                                    {isPaid && <div className="text-green-500"><CheckCircleIcon /></div>}
+                                </div>
+                                
+                                <div>
+                                    <div className="font-semibold text-brand-600 truncate">
+                                        {client?.name || 'Cliente'}
+                                    </div>
+                                    <div className="text-xs text-gray-400 mt-1 flex items-center">
+                                        <span className="bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide">
+                                            Agendado
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    }
 
-                 <button
-                   onClick={(e) => { e.stopPropagation(); toggleStatus(apt); }}
-                   className={`p-2 rounded-full transition-colors ${
-                     isPaid 
-                     ? 'bg-green-900/30 text-green-500 border border-green-900/50' 
-                     : 'bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200'
-                   }`}
-                 >
-                   <DollarSign size={18} />
-                 </button>
-              </div>
-            );
-          })
+                    return (
+                        <div 
+                            key={slot}
+                            onClick={() => handleSlotClick(slot)}
+                            className="p-4 rounded-xl border border-gray-100 bg-white flex flex-col justify-between min-h-[7rem] cursor-pointer hover:border-gray-300 hover:bg-gray-50 transition-all active:scale-95 shadow-sm group"
+                        >
+                            <div className="flex items-center gap-1.5 text-gray-400 group-hover:text-gray-600 transition-colors">
+                                <Clock size={16} />
+                                <span className="text-lg font-bold">{slot}</span>
+                            </div>
+                            
+                            <div className="text-sm text-gray-300 group-hover:text-brand-500 font-medium transition-colors">
+                                Disponível
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         )}
-        <div className="h-20"></div>
       </div>
 
       {/* FAB */}
-      <button
-        onClick={() => { setEditingApt(undefined); setIsModalOpen(true); }}
-        className="fixed bottom-20 right-4 bg-brand-600 text-black w-14 h-14 rounded-full shadow-lg shadow-black/50 flex items-center justify-center hover:bg-brand-500 transition-colors z-40 active:scale-95"
-      >
-        <Plus size={28} />
-      </button>
+      {isWorkDay && (
+        <button
+            onClick={() => { setEditingApt(undefined); setInitialTime(undefined); setIsModalOpen(true); }}
+            className="fixed bottom-20 right-4 bg-brand-600 text-black w-14 h-14 rounded-full shadow-lg shadow-black/50 flex items-center justify-center hover:bg-brand-500 transition-colors z-40 active:scale-95"
+        >
+            <Plus size={28} />
+        </button>
+      )}
 
       <AppointmentModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         selectedDate={dateKey}
         existingAppointment={editingApt}
+        initialTime={initialTime}
+        availableSlots={timeSlots}
       />
     </div>
   );

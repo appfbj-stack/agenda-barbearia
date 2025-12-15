@@ -54,4 +54,7 @@ export interface DailyStats {
 export interface BarberSettings {
   shopName: string;
   shopPhone: string;
+  workStartTime: string; // "09:00"
+  workEndTime: string;   // "19:00"
+  workDays: number[];    // [0, 1, 2, 3, 4, 5, 6] where 0 is Sunday
 }

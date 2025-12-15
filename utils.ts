@@ -24,11 +24,11 @@ export const formatTimeDisplay = (time: string): string => {
 export const getWeekDays = (startDate: Date = new Date()) => {
   const days = [];
   const current = new Date(startDate);
-  // Adjust to start of week (Sunday)
-  const dayOfWeek = current.getDay(); 
-  current.setDate(current.getDate() - dayOfWeek); // Go to Sunday
+  
+  // Previously we rewound to Sunday here. 
+  // Now we simply start from the provided date (Today) and move forward.
 
-  // Show 14 days (2 weeks) to ensure "Whole Week" visibility + Next Week context
+  // Show 14 days (2 weeks) starting from Today
   for (let i = 0; i < 14; i++) {
     days.push(new Date(current));
     current.setDate(current.getDate() + 1);

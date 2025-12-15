@@ -8,6 +8,8 @@ import Services from './pages/Services';
 import Finance from './pages/Finance';
 import Admin from './pages/Admin';
 import Landing from './pages/Landing';
+import ClientSignup from './pages/ClientSignup';
+import ClientBooking from './pages/ClientBooking';
 
 const App: React.FC = () => {
   return (
@@ -16,6 +18,8 @@ const App: React.FC = () => {
         <Routes>
           {/* Public Landing Page */}
           <Route path="/" element={<Landing />} />
+          <Route path="/cadastro" element={<ClientSignup />} />
+          <Route path="/agendar" element={<ClientBooking />} />
           
           {/* Protected/App Routes wrapped in Layout */}
           <Route path="/agenda" element={<Layout><Agenda /></Layout>} />

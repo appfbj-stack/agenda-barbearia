@@ -42,7 +42,10 @@ const INITIAL_SERVICES: Service[] = [
 
 const INITIAL_SETTINGS: BarberSettings = {
   shopName: 'Minha Barbearia',
-  shopPhone: ''
+  shopPhone: '',
+  workStartTime: '08:00',
+  workEndTime: '20:00',
+  workDays: [1, 2, 3, 4, 5, 6] // Mon-Sat default
 };
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -67,7 +70,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setClients(loadedClients);
     setServices(loadedServices.length > 0 ? loadedServices : INITIAL_SERVICES);
     setAppointments(loadedAppointments);
-    if (loadedSettings) setSettings(loadedSettings);
+    
+    // Merge loaded settings with initial settings to ensure new fields (workHours) exist
+    if (loadedSettings) {
+      setSettings({ ...INITIAL_SETTINGS, ...loadedSettings });
+    }
   }, []);
 
   // Persist data
