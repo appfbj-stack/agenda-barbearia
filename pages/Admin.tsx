@@ -48,18 +48,26 @@ const Admin: React.FC = () => {
   };
 
   // --- Sharing Logic ---
+  const getCleanPhoneForLink = () => {
+      let clean = (shopPhone || '').replace(/\D/g, '');
+      // If user typed 11999999999 (11 digits) or 1199999999 (10 digits), assume Brazil and add 55
+      if (clean.length >= 10 && clean.length <= 11) {
+          clean = '55' + clean;
+      }
+      return clean;
+  }
+
   const getBookingLink = () => {
-      const simpleServices = services.map(s => ({ id: s.id, n: s.name, p: s.price }));
-      const encodedServices = encodeURIComponent(JSON.stringify(simpleServices));
       const baseUrl = window.location.href.split('#')[0];
-      const cleanPhone = (shopPhone || '').replace(/\D/g, '');
+      const cleanPhone = getCleanPhoneForLink();
       const encodedShop = encodeURIComponent(shopName);
-      return `${baseUrl}#/agendar?phone=${cleanPhone}&shop=${encodedShop}&start=${workStartTime}&end=${workEndTime}&s=${encodedServices}`;
+      // Simplified link: Only shop info and hours, no services list
+      return `${baseUrl}#/agendar?phone=${cleanPhone}&shop=${encodedShop}&start=${workStartTime}&end=${workEndTime}`;
   };
 
   const getSignupLink = () => {
       const baseUrl = window.location.href.split('#')[0];
-      const cleanPhone = (shopPhone || '').replace(/\D/g, '');
+      const cleanPhone = getCleanPhoneForLink();
       const encodedShop = encodeURIComponent(shopName);
       return `${baseUrl}#/cadastro?phone=${cleanPhone}&shop=${encodedShop}`;
   };

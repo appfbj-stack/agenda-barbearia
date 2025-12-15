@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store';
-import { Scissors, Clock, Plus, Trash2, Share2, Copy, Check, MessageCircle } from 'lucide-react';
+import { Scissors, Clock, Plus, Trash2, Copy, Check, MessageCircle } from 'lucide-react';
 import { formatCurrency } from '../utils';
 
 const Services: React.FC = () => {
   const { services, addService, deleteService, settings } = useAppStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [newService, setNewService] = useState({ name: '', price: '', duration: '30' });
   const [isCopied, setIsCopied] = useState(false);
 
@@ -22,114 +21,60 @@ const Services: React.FC = () => {
   };
 
   const getShareUrl = () => {
-      const simpleServices = services.map(s => ({ id: s.id, n: s.name, p: s.price }));
-      const servicesJson = JSON.stringify(simpleServices);
-      const encodedServices = encodeURIComponent(servicesJson);
-      
       const baseUrl = window.location.href.split('#')[0];
-      const cleanPhone = (settings.shopPhone || '').replace(/\D/g, '');
+      // Admin saves phone. We clean it here.
+      let cleanPhone = (settings.shopPhone || '').replace(/\D/g, '');
+      // Auto-fix Brazil country code if missing (common user error)
+      if (cleanPhone.length >= 10 && cleanPhone.length <= 11) {
+          cleanPhone = '55' + cleanPhone;
+      }
+
       const encodedShop = encodeURIComponent(settings.shopName);
-      
       const start = settings.workStartTime || '08:00';
       const end = settings.workEndTime || '20:00';
 
-      return `${baseUrl}#/agendar?phone=${cleanPhone}&shop=${encodedShop}&start=${start}&end=${end}&s=${encodedServices}`;
+      return `${baseUrl}#/agendar?phone=${cleanPhone}&shop=${encodedShop}&start=${start}&end=${end}`;
   };
 
-  const handleShareClick = () => {
+  // DIRECT WHATSAPP ACTION
+  const handleDirectWhatsApp = () => {
       if(!settings.shopPhone) {
           alert('Configure o telefone da barbearia no menu Admin primeiro.');
           return;
       }
-      setIsShareModalOpen(true);
-      setIsCopied(false);
+      const url = getShareUrl();
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
+      window.open(whatsappUrl, '_blank');
   }
 
-  const handleCopySuccess = () => {
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-      setTimeout(() => setIsShareModalOpen(false), 2500); 
-  }
-
-  const performCopy = async (text: string) => {
+  const handleCopy = async () => {
+      const text = getShareUrl();
       // 1. Modern API
       if (navigator.clipboard && navigator.clipboard.writeText) {
           try {
               await navigator.clipboard.writeText(text);
-              handleCopySuccess();
-              return true;
+              setIsCopied(true);
+              setTimeout(() => setIsCopied(false), 2000);
+              return;
           } catch (e) {
               console.warn("Clipboard API failed");
           }
       }
       
-      // 2. iOS/WebView Fallback
+      // 2. Fallback
       try {
           const textArea = document.createElement("textarea");
           textArea.value = text;
-          
           textArea.style.position = 'fixed';
-          textArea.style.top = '0';
-          textArea.style.left = '0';
-          textArea.style.width = '2em';
-          textArea.style.height = '2em';
-          textArea.style.padding = '0';
-          textArea.style.border = 'none';
-          textArea.style.outline = 'none';
-          textArea.style.boxShadow = 'none';
-          textArea.style.background = 'transparent';
-          textArea.style.opacity = '0.1';
-          textArea.setAttribute('readonly', '');
-          
+          textArea.style.left = '-9999px';
           document.body.appendChild(textArea);
-          
-          const range = document.createRange();
-          range.selectNodeContents(textArea);
-          const selection = window.getSelection();
-          if (selection) {
-              selection.removeAllRanges();
-              selection.addRange(range);
-          }
-          textArea.setSelectionRange(0, 999999);
-          
-          const successful = document.execCommand('copy');
+          textArea.select();
+          document.execCommand('copy');
           document.body.removeChild(textArea);
-          
-          if (successful) {
-              handleCopySuccess();
-              return true;
-          }
-      } catch (fallbackErr) {
+          setIsCopied(true);
+          setTimeout(() => setIsCopied(false), 2000);
+      } catch (err) {
           prompt("Copie o link manualmente:", text);
-          return false;
-      }
-  };
-
-  const copyToClipboard = () => {
-      const url = getShareUrl();
-      performCopy(url);
-  }
-
-  const shareWhatsApp = () => {
-      const url = getShareUrl();
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
-      window.open(whatsappUrl, '_blank');
-  };
-
-  const shareNative = async () => {
-      const url = getShareUrl();
-      if (navigator.share) {
-          try {
-              await navigator.share({
-                  title: `Agendar - ${settings.shopName}`,
-                  text: `Agende seu horário na ${settings.shopName} pelo link abaixo:`,
-                  url: url
-              });
-          } catch (err) {
-             console.log("Share cancelled");
-          }
-      } else {
-          shareWhatsApp();
       }
   }
 
@@ -138,18 +83,34 @@ const Services: React.FC = () => {
       <div className="p-4 border-b bg-white sticky top-0 z-10 flex justify-between items-center">
         <h1 className="text-xl font-bold text-brand-500">Serviços</h1>
         <div className="flex gap-2">
+            {/* Direct Copy Button */}
             <button 
-                onClick={handleShareClick}
-                className="bg-brand-100 text-brand-700 p-2 rounded-lg text-sm font-bold flex items-center hover:bg-brand-200 border border-brand-200 active:scale-95 transition-transform"
-                title="Link de Agendamento"
+                onClick={handleCopy}
+                className={`p-2 rounded-lg text-sm font-bold flex items-center border transition-all active:scale-95 ${
+                    isCopied 
+                    ? 'bg-green-100 text-green-700 border-green-200' 
+                    : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                }`}
+                title="Copiar Link"
             >
-                <Share2 size={16} />
+                {isCopied ? <Check size={20} /> : <Copy size={20} />}
             </button>
+
+            {/* Direct WhatsApp Button */}
+            <button 
+                onClick={handleDirectWhatsApp}
+                className="bg-[#25D366] text-white p-2 rounded-lg text-sm font-bold flex items-center shadow-sm active:scale-95 transition-transform"
+                title="Enviar no WhatsApp"
+            >
+                <MessageCircle size={20} />
+            </button>
+
+            {/* Add Button */}
             <button 
                 onClick={() => setIsModalOpen(true)}
-                className="bg-brand-600 text-black p-2 rounded-lg text-sm font-bold flex items-center hover:bg-brand-500 active:scale-95 transition-transform"
+                className="bg-brand-600 text-black p-2 rounded-lg text-sm font-bold flex items-center hover:bg-brand-500 active:scale-95 transition-transform ml-2"
             >
-                <Plus size={16} className="mr-1" /> Novo
+                <Plus size={20} />
             </button>
         </div>
       </div>
@@ -246,58 +207,6 @@ const Services: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {isShareModalOpen && (
-         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-             <div className="bg-white rounded-xl w-full max-w-sm p-5 border border-gray-200 text-center">
-                <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-3 text-brand-600">
-                    <Share2 size={24} />
-                </div>
-                <h3 className="font-bold text-lg text-brand-500 mb-2">Link de Agendamento</h3>
-                <p className="text-gray-500 text-sm mb-4">Envie este link para seu cliente escolher o horário e serviço.</p>
-                
-                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 break-all text-xs text-gray-500 font-mono max-h-24 overflow-y-auto select-all">
-                    {getShareUrl()}
-                </div>
-
-                <div className="flex gap-2 flex-col">
-                   <div className="flex gap-2">
-                        <button 
-                            onClick={copyToClipboard}
-                            className={`flex-1 py-3 rounded-lg font-bold border flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                                isCopied 
-                                ? 'bg-green-500 text-white border-green-500' 
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-300'
-                            }`}
-                        >
-                            {isCopied ? <Check size={16} /> : <Copy size={16} />} 
-                            {isCopied ? 'Copiado!' : 'Copiar'}
-                        </button>
-                        <button 
-                            onClick={shareWhatsApp}
-                            className="flex-1 py-3 bg-[#25D366] text-white rounded-lg font-bold flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
-                        >
-                            <MessageCircle size={18} /> WhatsApp
-                        </button>
-                   </div>
-                   <div className="flex gap-2">
-                        <button 
-                            onClick={() => setIsShareModalOpen(false)}
-                            className="flex-1 py-3 bg-white text-gray-500 border border-gray-200 rounded-lg font-medium hover:bg-gray-50 active:scale-95 transition-all"
-                        >
-                            Fechar
-                        </button>
-                        <button 
-                            onClick={shareNative}
-                            className="flex-1 py-3 bg-brand-600 text-black rounded-lg font-bold hover:bg-brand-500 flex items-center justify-center gap-2 active:scale-95 transition-all"
-                        >
-                            <Share2 size={16} /> Outros
-                        </button>
-                   </div>
-                </div>
-             </div>
-         </div>
       )}
     </div>
   );
