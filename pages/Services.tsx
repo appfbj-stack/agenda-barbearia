@@ -22,9 +22,7 @@ const Services: React.FC = () => {
 
   const getShareUrl = () => {
       const baseUrl = window.location.href.split('#')[0];
-      // Admin saves phone. We clean it here.
       let cleanPhone = (settings.shopPhone || '').replace(/\D/g, '');
-      // Auto-fix Brazil country code if missing (common user error)
       if (cleanPhone.length >= 10 && cleanPhone.length <= 11) {
           cleanPhone = '55' + cleanPhone;
       }
@@ -33,7 +31,15 @@ const Services: React.FC = () => {
       const start = settings.workStartTime || '08:00';
       const end = settings.workEndTime || '20:00';
 
-      return `${baseUrl}#/agendar?phone=${cleanPhone}&shop=${encodedShop}&start=${start}&end=${end}`;
+      // Encode services
+      const encodedServices = encodeURIComponent(
+        services.map(s => {
+          const safeName = s.name.replace(/_/g, ' ').trim();
+          return `${safeName}_${s.price}`;
+        }).join(';')
+      );
+
+      return `${baseUrl}#/agendar?phone=${cleanPhone}&shop=${encodedShop}&start=${start}&end=${end}&s=${encodedServices}`;
   };
 
   // DIRECT WHATSAPP ACTION
@@ -43,14 +49,12 @@ const Services: React.FC = () => {
           return;
       }
       const url = getShareUrl();
-      // Use api.whatsapp.com/send specifically for sharing links to allow contact selection
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(url)}`;
       window.open(whatsappUrl, '_blank');
   }
 
   const handleCopy = async () => {
       const text = getShareUrl();
-      // 1. Modern API
       if (navigator.clipboard && navigator.clipboard.writeText) {
           try {
               await navigator.clipboard.writeText(text);
@@ -62,7 +66,6 @@ const Services: React.FC = () => {
           }
       }
       
-      // 2. Fallback
       try {
           const textArea = document.createElement("textarea");
           textArea.value = text;

@@ -50,19 +50,28 @@ const Admin: React.FC = () => {
   // --- Sharing Logic ---
   const getCleanPhoneForLink = () => {
       let clean = (shopPhone || '').replace(/\D/g, '');
-      // If user typed 11999999999 (11 digits) or 1199999999 (10 digits), assume Brazil and add 55
       if (clean.length >= 10 && clean.length <= 11) {
           clean = '55' + clean;
       }
       return clean;
   }
 
+  const getEncodedServices = () => {
+      // Create a compact string of services: "Corte_35;Barba_25"
+      // Replace spaces with + to keep URL safe and short
+      return services.map(s => {
+          const safeName = s.name.replace(/_/g, ' ').trim(); // Avoid double underscores
+          return `${safeName}_${s.price}`;
+      }).join(';');
+  };
+
   const getBookingLink = () => {
       const baseUrl = window.location.href.split('#')[0];
       const cleanPhone = getCleanPhoneForLink();
       const encodedShop = encodeURIComponent(shopName);
-      // Simplified link: Only shop info and hours, no services list
-      return `${baseUrl}#/agendar?phone=${cleanPhone}&shop=${encodedShop}&start=${workStartTime}&end=${workEndTime}`;
+      const encodedServices = encodeURIComponent(getEncodedServices());
+      
+      return `${baseUrl}#/agendar?phone=${cleanPhone}&shop=${encodedShop}&start=${workStartTime}&end=${workEndTime}&s=${encodedServices}`;
   };
 
   const getSignupLink = () => {
@@ -78,7 +87,6 @@ const Admin: React.FC = () => {
   };
 
   const performCopy = async (text: string, id: string) => {
-      // 1. Try modern API first
       if (navigator.clipboard && navigator.clipboard.writeText) {
           try {
               await navigator.clipboard.writeText(text);
@@ -89,50 +97,22 @@ const Admin: React.FC = () => {
           }
       }
 
-      // 2. Fallback for iOS/Android WebView
       try {
           const textArea = document.createElement("textarea");
           textArea.value = text;
-          
-          // iOS Safe Styling (must be visible in viewport but transparent)
           textArea.style.position = 'fixed';
-          textArea.style.top = '0';
-          textArea.style.left = '0';
-          textArea.style.width = '2em';
-          textArea.style.height = '2em';
-          textArea.style.padding = '0';
-          textArea.style.border = 'none';
-          textArea.style.outline = 'none';
-          textArea.style.boxShadow = 'none';
-          textArea.style.background = 'transparent';
-          textArea.style.opacity = '0.1'; // Slight opacity to ensure render
-          textArea.setAttribute('readonly', ''); // Prevent keyboard popup
-          
+          textArea.style.left = '-9999px';
           document.body.appendChild(textArea);
-          
-          // iOS Selection Strategy
-          const range = document.createRange();
-          range.selectNodeContents(textArea);
-          const selection = window.getSelection();
-          if (selection) {
-              selection.removeAllRanges();
-              selection.addRange(range);
-          }
-          textArea.setSelectionRange(0, 999999); // Legacy select
-          
-          const successful = document.execCommand('copy');
+          textArea.select();
+          document.execCommand('copy');
           document.body.removeChild(textArea);
-          
-          if (successful) {
-              handleCopySuccess(id);
-              return true;
-          }
+          handleCopySuccess(id);
+          return true;
       } catch (fallbackErr) {
           console.error(fallbackErr);
       }
       
-      // 3. Last Resort
-      prompt("Não foi possível copiar automaticamente. Copie o link abaixo:", text);
+      prompt("Copie o link abaixo:", text);
       return false;
   };
 
@@ -149,7 +129,6 @@ const Admin: React.FC = () => {
           alert("Salve o telefone da barbearia acima primeiro.");
           return;
       }
-      // Use api.whatsapp.com for better Web/Desktop support
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
       window.open(whatsappUrl, '_blank');
   };
@@ -326,7 +305,7 @@ const Admin: React.FC = () => {
           </div>
           
           <p className="text-sm text-gray-400">
-             Envie estes links para seus clientes agendarem ou se cadastrarem sozinhos.
+             Envie estes links para seus clientes. O link inclui seus serviços e horários.
           </p>
 
           <div className="space-y-4">
@@ -402,54 +381,6 @@ const Admin: React.FC = () => {
               </div>
           </div>
         </div>
-
-        {/* Data Management Card */}
-        <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 text-brand-500 font-semibold border-b border-gray-100 pb-2">
-            <Download size={20} />
-            <h2>Backup & Dados</h2>
-          </div>
-          
-          <p className="text-sm text-gray-400">
-            Salve seus dados regularmente. Como este é um app offline, seus dados ficam apenas neste dispositivo.
-          </p>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              onClick={handleExport}
-              className="flex flex-col items-center justify-center p-4 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all active:scale-95"
-            >
-               <Download size={24} className="mb-2 text-brand-600" />
-               <span className="text-sm font-bold text-gray-600">Baixar Backup</span>
-            </button>
-            
-            <button 
-              onClick={handleImportClick}
-              className="flex flex-col items-center justify-center p-4 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all active:scale-95"
-            >
-               <Upload size={24} className="mb-2 text-brand-600" />
-               <span className="text-sm font-bold text-gray-600">Restaurar</span>
-            </button>
-            <input 
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept=".json"
-              onChange={handleFileChange}
-            />
-          </div>
-
-          <div className="pt-2 border-t border-gray-100">
-             <button 
-                onClick={handleResetApp}
-                className="w-full py-3 text-red-500 font-medium text-sm flex items-center justify-center gap-2 hover:bg-red-50 rounded-lg transition-all active:scale-95"
-             >
-                <ShieldAlert size={16} />
-                Resetar Aplicativo (Apagar Tudo)
-             </button>
-          </div>
-        </div>
-
       </div>
     </div>
   );
